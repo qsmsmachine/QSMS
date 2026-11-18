@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Portal de documentos</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--ink:#14171c;--mut:#5b6572;--line:#d8dee6;--brand:#154cb0;--ok:#2e7d32;--warn:#b26a00;--bad:#c62828}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}
+header{background:#000;color:#fff;padding:14px 16px;border-bottom:4px solid var(--brand)}
+header h1{margin:0;font-size:1.1rem}header p{margin:2px 0 0;font-size:.85rem;opacity:.85}
+main{max-width:720px;margin:0 auto;padding:14px 16px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+h2{font-size:1rem;margin:0 0 8px}.mut{color:var(--mut);font-size:.86rem}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th,td{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left;vertical-align:top}
+th{background:#000;color:#fff;font-size:.78rem}
+label{display:block;font-size:.85rem;font-weight:600;margin:10px 0 3px}
+input[type=text]{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit}
+button{font:inherit;border:0;border-radius:8px;padding:11px 16px;background:var(--brand);color:#fff;font-weight:600;cursor:pointer}
+button:disabled{opacity:.6}.ghost{background:#fff;color:var(--brand);border:1px solid var(--brand)}
+canvas{width:100%;height:180px;border:2px dashed #9aa6b5;border-radius:10px;background:#fff;touch-action:none;display:block}
+.erro{background:#fdeeee;color:var(--bad);border:1px solid #f1bcbc;border-radius:10px;padding:12px;margin:14px 0}
+.okbox{background:#eef8ef;color:var(--ok);border:1px solid #bfe0c2;border-radius:10px;padding:14px;margin:14px 0}
+.chk{display:flex;gap:8px;align-items:flex-start;font-weight:500}.chk input{margin-top:4px}
+footer{max-width:720px;margin:0 auto;padding:0 16px 30px;color:var(--mut);font-size:.78rem}
+.q{border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0}.q b{display:block;margin-bottom:6px}
+.op{display:flex;gap:8px;align-items:flex-start;padding:9px;border:1px solid var(--line);border-radius:8px;margin:5px 0;font-weight:500;cursor:pointer}.op input{margin-top:3px}.op.sel{border-color:var(--brand);background:#eef3fc}
+.prog{height:8px;background:#e3e8ee;border-radius:6px;overflow:hidden;margin:6px 0}.prog i{display:block;height:100%;background:var(--brand);width:0}
+.res{text-align:center;padding:18px}.res .n{font-size:2.6rem;font-weight:800}
+.q.err{border-color:var(--bad);background:#fff7f7}
+.doc{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:9px 0}.doc:last-child{border-bottom:0}
+.doc .nm{flex:1;min-width:170px;font-weight:600}.doc small{display:block;font-weight:400;color:var(--mut)}
+.tag{font-size:.74rem;font-weight:700;border-radius:20px;padding:3px 9px;white-space:nowrap;background:#e8ecf1;color:#33415c}
+.tag.ok{background:#dff5e6;color:#11602f}.tag.bad{background:#fde3e1;color:#8a1c14}.tag.warn{background:#fff1c9;color:#7a4b00}.tag.info{background:#e1ecfd;color:#143f8f}
+.mini{padding:7px 12px;font-size:.84rem;width:auto}
+.up{flex-basis:100%;background:#f5f8fc;border:1px dashed #9db3d6;border-radius:8px;padding:10px;display:grid;gap:8px}
+details{border:1px solid var(--line);border-radius:10px;margin:8px 0;background:#fff}summary{padding:11px 12px;font-weight:700;cursor:pointer;display:flex;gap:8px;align-items:center;flex-wrap:wrap}summary span.n{flex:1}
+details .in{padding:0 12px 8px}
+.bar{position:sticky;top:0;z-index:5}
+</style>
+</head>
+<body>
+<header><h1 id="tt">Portal de documentos — Machine</h1><p id="sub">Carregando…</p></header>
+<main id="app"></main>
+<footer>Este link é exclusivo da sua empresa e vale por tempo limitado: não compartilhe fora da empresa. Os documentos enviados são vistos somente pela Segurança do Trabalho da Machine. Formatos aceitos: PDF, JPG ou PNG.</footer>
+<script>
+const Q = new URLSearchParams(location.search), TOKEN = Q.get('t') || '', API = Q.get('a') || '';
+const $ = s => document.querySelector(s);
+const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const br = d => d ? String(d).split('-').reverse().join('/') : '';
+async function api(acao, extra) {
+  if (!/^https:\/\/script\.google\.com\//.test(API)) throw new Error('Link incompleto. Peça um novo link à Machine.');
+  let j;
+  try { const r = await fetch(API, { method: 'POST', body: JSON.stringify(Object.assign({ acao, token: TOKEN }, extra || {})) }); j = await r.json(); }
+  catch (e) { throw new Error('Sem conexão com o servidor. Verifique a internet e tente de novo.'); }
+  if (!j.ok) throw new Error(j.erro || 'Erro.');
+  return j.data;
+}
+let D = null, ABERTO = null, ABERTOS = new Set();
+const OK = ['Aprovado', 'Aprovado com ressalva', 'Não se aplica'];
+const cor = e => e === 'Aprovado' || e === 'Aprovado com ressalva' ? 'ok' : e === 'Reprovado' || e === 'Vencido' ? 'bad' : e === 'Aguardando' ? 'info' : e === 'Não se aplica' ? '' : 'warn';
+const rot = e => e === 'Aguardando' ? 'Em análise pela Machine' : e === 'Pendente' ? 'Falta enviar' : e === 'Reprovado' ? 'Recusado' : e;
+const faltam = l => l.filter(d => OK.indexOf(d.estado) < 0 && d.estado !== 'Aguardando').length;
+function linhaDoc(d, alvo, trabId) {
+  const k = alvo + '|' + (trabId || '') + '|' + d.doc, ab = ABERTO === k;
+  const bt = d.estado === 'Não se aplica' ? '' : `<button class="mini ${d.enviado && d.estado !== 'Reprovado' && d.estado !== 'Vencido' ? 'ghost' : ''}" data-k="${esc(k)}">${d.enviado ? 'Enviar outro' : 'Enviar'}</button>`;
+  return `<div class="doc"><div class="nm">${esc(d.doc)}${d.validade ? `<small>Validade: ${esc(br(d.validade))}</small>` : ''}${d.motivo ? `<small style="color:var(--bad)">Motivo: ${esc(d.motivo)}</small>` : ''}</div><span class="tag ${cor(d.estado)}">${esc(rot(d.estado))}</span>${bt}
+    ${ab ? `<div class="up"><label style="margin:0">Arquivo (PDF, JPG ou PNG, até ${D.maxMb} MB)</label><input type="file" id="arq" accept="application/pdf,image/jpeg,image/png">
+      ${d.pedeData ? `<label style="margin:0">Data de realização / emissão do documento</label><input type="date" id="dt" max="${new Date().toISOString().slice(0, 10)}">` : ''}
+      <div style="display:flex;gap:8px"><button class="mini ghost" data-x="1" type="button">Cancelar</button><button class="mini" id="envia" type="button" style="flex:1">Enviar documento</button></div><p class="mut" id="msg" style="margin:0"></p></div>` : ''}</div>`;
+}
+function pintar(aviso) {
+  const e = D.empresa, fe = faltam(D.docs), ft = D.trabs.reduce((s, t) => s + faltam(t.docs), 0), an = D.docs.concat(...D.trabs.map(t => t.docs)).filter(d => d.estado === 'Aguardando').length;
+  $('#tt').textContent = e.nome; $('#sub').textContent = 'Documentação para a obra ' + e.obra + ' — Machine';
+  const topo = e.ok ? `<div class="okbox"><b>Documentação completa e aprovada.</b> Lembre que a integração de segurança é obrigatória antes do início das atividades.</div>`
+    : (fe + ft) ? `<div class="erro"><b>Faltam ${fe + ft} documento(s)</b> (${fe} da empresa, ${ft} de trabalhadores)${an ? ' e ' + an + ' em análise' : ''}. Envie os itens marcados como “Falta enviar”, “Recusado” ou “Vencido”.</div>`
+    : `<div class="okbox"><b>Tudo enviado.</b> ${an ? an + ' documento(s) em análise pela Segurança do Trabalho. ' : ''}Você receberá um e-mail quando a liberação for concluída.</div>`;
+  $('#app').innerHTML = (aviso ? `<div class="okbox">${esc(aviso)}</div>` : '') + topo
+    + `<div class="card"><h2>Documentos da empresa</h2>${D.docs.map(d => linhaDoc(d, 'emp')).join('')}</div>`
+    + `<div class="card"><h2>Trabalhadores na obra (${D.trabs.length}${D.max ? ' de ' + D.max : ''})</h2><p class="mut">Toque no nome para abrir os documentos de cada um. Para tirar alguém da obra, use <b>Desmobilizar</b> — não é possível excluir trabalhador.</p>
+      ${D.trabs.map(t => { const f = faltam(t.docs), dk = 'desmob|' + t.id; return `<details data-t="${esc(t.id)}" ${ABERTOS.has(t.id) ? 'open' : ''}><summary><span class="n">${esc(t.nome)}<small style="display:block;font-weight:400;color:var(--mut)">${esc(t.funcao)}</small></span><span class="tag ${t.liberado === 'Sim' ? 'ok' : f ? 'bad' : 'info'}">${t.liberado === 'Sim' ? 'Liberado' : f ? 'Faltam ' + f : 'Em análise'}</span></summary><div class="in">${t.docs.map(d => linhaDoc(d, 'trab', t.id)).join('')}
+        <div style="margin-top:8px;text-align:right">${ABERTO === dk ? `<div class="up" style="text-align:left"><b>Desmobilizar ${esc(t.nome)} da obra</b><label style="margin:6px 0 0">Data de saída da obra</label><input type="date" id="dmdt" max="${new Date().toISOString().slice(0, 10)}"><label style="margin:6px 0 0">Motivo da desmobilização</label><textarea id="dmmot" rows="2" placeholder="Ex.: fim do contrato, troca de equipe, pedido de demissão"></textarea><div style="display:flex;gap:8px;margin-top:8px"><button class="mini ghost" data-x="1" type="button">Cancelar</button><button class="mini" id="dmok" type="button" style="flex:1">Confirmar desmobilização</button></div><p class="mut" id="dmmsg" style="margin:0"></p></div>` : `<button class="mini ghost" data-dm="${esc(t.id)}" type="button">Desmobilizar da obra</button>`}</div></div></details>`; }).join('') || '<p class="mut">Nenhum trabalhador cadastrado.</p>'}
+      ${D.max && D.trabs.length >= D.max ? '<p class="mut" style="color:var(--bad)">Limite de ' + D.max + ' trabalhadores atingido. Desmobilize quem saiu da obra para liberar vagas, ou fale com a Segurança do Trabalho.</p>' : ''}
+      <h2 style="margin-top:14px">Adicionar trabalhador</h2><label for="tn">Nome completo</label><input type="text" id="tn" maxlength="80"><label for="tf">Função</label><input type="text" id="tf" maxlength="60">
+      <p class="mut" id="tmsg"></p><button id="tadd" type="button" class="ghost" style="width:100%">+ Adicionar trabalhador</button></div>`
+    + ((D.desmob && D.desmob.length) ? `<details class="card"><summary style="font-weight:700">Desmobilizados (${D.desmob.length})</summary><div class="in">${D.desmob.map(x => `<div class="doc"><div class="nm">${esc(x.nome)}<small>${esc(x.funcao)}${x.data ? ' — saiu em ' + esc(br(x.data)) : ''}${x.motivo ? ' — ' + esc(x.motivo) : ''}</small></div></div>`).join('')}</div></details>` : '');
+  document.querySelectorAll('details').forEach(d => d.addEventListener('toggle', () => { if (d.open) ABERTOS.add(d.dataset.t); else ABERTOS.delete(d.dataset.t); }));
+  document.querySelectorAll('button[data-k]').forEach(b => b.onclick = () => { ABERTO = b.dataset.k; pintar(); const u = document.querySelector('.up'); if (u) u.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  document.querySelectorAll('button[data-x]').forEach(b => b.onclick = () => { ABERTO = null; pintar(); });
+  document.querySelectorAll('button[data-dm]').forEach(b => b.onclick = () => { ABERTO = 'desmob|' + b.dataset.dm; ABERTOS.add(b.dataset.dm); pintar(); const u = document.querySelector('.up'); if (u) u.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  if ($('#dmok')) $('#dmok').onclick = desmobilizar;
+  if ($('#envia')) $('#envia').onclick = enviar;
+  $('#tadd').onclick = addTrab;
+}
+function lerB64(file) { return new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = () => no(new Error('Não foi possível ler o arquivo.')); r.readAsDataURL(file); }); }
+async function enviar() {
+  const msg = $('#msg'), f = $('#arq').files[0], dt = $('#dt'), [alvo, trabId, doc] = ABERTO.split('|');
+  if (!f) return msg.textContent = 'Escolha o arquivo.';
+  if (['application/pdf', 'image/jpeg', 'image/png'].indexOf(f.type) < 0) return msg.textContent = 'Envie em PDF, JPG ou PNG.';
+  if (f.size > D.maxMb * 1024 * 1024) return msg.textContent = 'Arquivo maior que ' + D.maxMb + ' MB. Reduza o tamanho e tente de novo.';
+  if (dt && !dt.value) return msg.textContent = 'Informe a data de realização / emissão.';
+  const b = $('#envia'); b.disabled = true; b.textContent = 'Enviando… aguarde'; msg.textContent = '';
+  try {
+    const r = await api('portalEnviar', { alvo, trabId, doc, mime: f.type, nome: f.name, b64: await lerB64(f), dataRealizacao: dt ? dt.value : '' });
+    D = r.quadro; ABERTO = null; pintar(doc + ': recebido. ' + (r.estado === 'Aprovado' ? 'Aprovado pela data informada (sujeito a conferência).' : 'Em análise pela Segurança do Trabalho.'));
+  } catch (e) { msg.textContent = e.message; b.disabled = false; b.textContent = 'Enviar documento'; }
+}
+async function desmobilizar() {
+  const trabId = ABERTO.split('|')[1], dt = $('#dmdt'), mot = $('#dmmot'), msg = $('#dmmsg');
+  if (!dt.value) return msg.textContent = 'Informe a data de saída da obra.';
+  if (mot.value.trim().length < 5) return msg.textContent = 'Explique o motivo (mínimo de 5 letras).';
+  if (!confirm('Confirmar a desmobilização deste trabalhador da obra? Ele sai da lista de ativos.')) return;
+  const b = $('#dmok'); b.disabled = true; b.textContent = 'Desmobilizando…';
+  try { D = await api('portalDesmob', { trabId: trabId, data: dt.value, motivo: mot.value.trim() }); ABERTO = null; ABERTOS.delete(trabId); pintar('Trabalhador desmobilizado da obra.'); }
+  catch (e) { msg.textContent = e.message; b.disabled = false; b.textContent = 'Confirmar desmobilização'; }
+}
+async function addTrab() {
+  const n = $('#tn').value.trim(), f = $('#tf').value.trim(), msg = $('#tmsg'), b = $('#tadd');
+  if (n.length < 5 || n.indexOf(' ') < 0) return msg.textContent = 'Digite o nome completo.';
+  if (!f) return msg.textContent = 'Informe a função.';
+  b.disabled = true; b.textContent = 'Adicionando…';
+  try { D = await api('portalTrab', { nome: n, funcao: f }); const novo = D.trabs.find(t => t.nome.toLowerCase() === n.toLowerCase()); if (novo) ABERTOS.add(novo.id); pintar('Trabalhador adicionado. Envie os documentos dele.'); }
+  catch (e) { msg.textContent = e.message; b.disabled = false; b.textContent = '+ Adicionar trabalhador'; }
+}
+(async function () {
+  if (!TOKEN) { $('#sub').textContent = 'Não foi possível abrir'; $('#app').innerHTML = '<div class="erro">Link incompleto. Peça um novo link à Machine.</div>'; return; }
+  try { D = await api('portalGet'); pintar(); } catch (e) { $('#sub').textContent = 'Não foi possível abrir'; $('#app').innerHTML = `<div class="erro">${esc(e.message)}</div>`; }
+})();
+</script>
+</body>
+</html>

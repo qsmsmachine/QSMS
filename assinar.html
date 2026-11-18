@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Assinatura da ficha de EPI</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--ink:#14171c;--mut:#5b6572;--line:#d8dee6;--brand:#154cb0;--ok:#2e7d32;--warn:#b26a00;--bad:#c62828}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}
+header{background:#000;color:#fff;padding:14px 16px;border-bottom:4px solid var(--brand)}
+header h1{margin:0;font-size:1.1rem}header p{margin:2px 0 0;font-size:.85rem;opacity:.85}
+main{max-width:720px;margin:0 auto;padding:14px 16px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+h2{font-size:1rem;margin:0 0 8px}.mut{color:var(--mut);font-size:.86rem}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th,td{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left;vertical-align:top}
+th{background:#000;color:#fff;font-size:.78rem}
+label{display:block;font-size:.85rem;font-weight:600;margin:10px 0 3px}
+input[type=text]{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit}
+button{font:inherit;border:0;border-radius:8px;padding:11px 16px;background:var(--brand);color:#fff;font-weight:600;cursor:pointer}
+button:disabled{opacity:.6}.ghost{background:#fff;color:var(--brand);border:1px solid var(--brand)}
+canvas{width:100%;height:180px;border:2px dashed #9aa6b5;border-radius:10px;background:#fff;touch-action:none;display:block}
+.erro{background:#fdeeee;color:var(--bad);border:1px solid #f1bcbc;border-radius:10px;padding:12px;margin:14px 0}
+.okbox{background:#eef8ef;color:var(--ok);border:1px solid #bfe0c2;border-radius:10px;padding:14px;margin:14px 0}
+.chk{display:flex;gap:8px;align-items:flex-start;font-weight:500}.chk input{margin-top:4px}
+footer{max-width:720px;margin:0 auto;padding:0 16px 30px;color:var(--mut);font-size:.78rem}
+</style>
+</head>
+<body>
+<header><h1>Ficha de entrega de EPI</h1><p id="sub">Carregando…</p></header>
+<main id="app"></main>
+<footer>Este link é pessoal e vale por tempo limitado. Ele mostra somente a sua ficha de EPI e não dá acesso a nenhum outro dado do sistema.</footer>
+<script>
+const Q = new URLSearchParams(location.search), TOKEN = Q.get('t') || '', API = Q.get('a') || '';
+const $ = s => document.querySelector(s);
+const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const br = d => d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—';
+async function api(acao, extra) {
+  if (!/^https:\/\/script\.google\.com\//.test(API)) throw new Error('Link incompleto. Peça um novo link a quem enviou.');
+  let j;
+  try { const r = await fetch(API, { method: 'POST', body: JSON.stringify(Object.assign({ acao, token: TOKEN }, extra || {})) }); j = await r.json(); }
+  catch (e) { throw new Error('Sem conexão com o servidor. Verifique a internet e tente de novo.'); }
+  if (!j.ok) throw new Error(j.erro || 'Erro.');
+  return j.data;
+}
+let D = null, desenhou = false;
+function erro(m) { $('#sub').textContent = 'Não foi possível abrir'; $('#app').innerHTML = `<div class="erro">${esc(m)}</div>`; }
+async function iniciar() {
+  if (!TOKEN) return erro('Link incompleto. Peça um novo link a quem enviou.');
+  try { D = await api('assGet'); } catch (e) { return erro(e.message); }
+  $('#sub').textContent = D.nome + (D.funcao ? ' • ' + D.funcao : '') + (D.obra ? ' • ' + D.obra : '');
+  if (D.jaAssinado) return $('#app').innerHTML = `<div class="okbox"><b>Esta ficha já foi assinada</b> em ${esc(br(D.assinadoEm))}. Não é preciso fazer mais nada.</div>`;
+  const lin = D.itens.map(i => `<tr><td>${esc(br(i.data))}</td><td><b>${esc(i.epi)}</b></td><td>${esc(i.ca)}</td><td>${esc(i.qtd)}</td><td>${esc(i.validade ? br(i.validade) : '—')}</td></tr>`).join('');
+  $('#app').innerHTML = `<div class="card"><h2>Itens recebidos</h2><div style="overflow:auto"><table><thead><tr><th>Entrega</th><th>EPI</th><th>CA</th><th>Qtd</th><th>Validade</th></tr></thead><tbody>${lin}</tbody></table></div></div>
+  <div class="card"><label class="chk"><input type="checkbox" id="ac"><span>Declaro que recebi gratuitamente os EPIs acima, fui orientado quanto ao uso correto, guarda e conservação, e me comprometo a usá-los apenas para a finalidade a que se destinam, comunicando ao empregador qualquer alteração que os torne impróprios para uso.</span></label>
+    <label for="nm">Seu nome completo</label><input type="text" id="nm" maxlength="80" autocomplete="name" value="">
+    <label>Assine com o dedo no quadro</label><canvas id="cv"></canvas>
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="ghost" id="lp" type="button">Limpar</button><button id="en" type="button" style="flex:1">Assinar e enviar</button></div>
+    <p class="mut" id="msg"></p></div>`;
+  pad(); $('#lp').onclick = () => { const c = $('#cv'); c.getContext('2d').clearRect(0, 0, c.width, c.height); desenhou = false; };
+  $('#en').onclick = enviar;
+}
+function pad() {
+  const c = $('#cv'), r = c.getBoundingClientRect(), k = 2; c.width = Math.round(r.width * k); c.height = Math.round(r.height * k);
+  const g = c.getContext('2d'); g.lineWidth = 3.2; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = '#000'; let on = false;
+  const pt = e => { const b = c.getBoundingClientRect(); return [(e.clientX - b.left) * c.width / b.width, (e.clientY - b.top) * c.height / b.height]; };
+  c.addEventListener('pointerdown', e => { on = true; c.setPointerCapture(e.pointerId); const [x, y] = pt(e); g.beginPath(); g.moveTo(x, y); g.lineTo(x + .1, y + .1); g.stroke(); desenhou = true; e.preventDefault(); });
+  c.addEventListener('pointermove', e => { if (!on) return; const [x, y] = pt(e); g.lineTo(x, y); g.stroke(); e.preventDefault(); });
+  const fim = () => { on = false; }; c.addEventListener('pointerup', fim); c.addEventListener('pointercancel', fim);
+}
+async function enviar() {
+  const msg = $('#msg'), nome = $('#nm').value.trim();
+  if (!$('#ac').checked) return msg.textContent = 'Marque a declaração para assinar.';
+  if (nome.length < 3) return msg.textContent = 'Digite o seu nome completo.';
+  if (!desenhou) return msg.textContent = 'Faça a sua assinatura no quadro.';
+  const b64 = $('#cv').toDataURL('image/png').split(',')[1], bt = $('#en'); bt.disabled = true; bt.textContent = 'Enviando…'; msg.textContent = '';
+  try {
+    const r = await api('assSalvar', { nome, aceite: true, b64 });
+    $('#app').innerHTML = `<div class="okbox"><b>Assinatura registrada.</b> ${esc(r.itens)} item(ns) assinado(s) em ${esc(br(r.assinadoEm))}. Pode fechar esta página.</div>`;
+  } catch (e) { msg.textContent = e.message; bt.disabled = false; bt.textContent = 'Assinar e enviar'; }
+}
+iniciar();
+</script>
+</body>
+</html>

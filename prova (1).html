@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Prova do treinamento</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--ink:#14171c;--mut:#5b6572;--line:#d8dee6;--brand:#154cb0;--ok:#2e7d32;--warn:#b26a00;--bad:#c62828}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}
+header{background:#000;color:#fff;padding:14px 16px;border-bottom:4px solid var(--brand)}
+header h1{margin:0;font-size:1.1rem}header p{margin:2px 0 0;font-size:.85rem;opacity:.85}
+main{max-width:720px;margin:0 auto;padding:14px 16px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+h2{font-size:1rem;margin:0 0 8px}.mut{color:var(--mut);font-size:.86rem}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th,td{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left;vertical-align:top}
+th{background:#000;color:#fff;font-size:.78rem}
+label{display:block;font-size:.85rem;font-weight:600;margin:10px 0 3px}
+input[type=text]{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit}
+button{font:inherit;border:0;border-radius:8px;padding:11px 16px;background:var(--brand);color:#fff;font-weight:600;cursor:pointer}
+button:disabled{opacity:.6}.ghost{background:#fff;color:var(--brand);border:1px solid var(--brand)}
+canvas{width:100%;height:180px;border:2px dashed #9aa6b5;border-radius:10px;background:#fff;touch-action:none;display:block}
+.erro{background:#fdeeee;color:var(--bad);border:1px solid #f1bcbc;border-radius:10px;padding:12px;margin:14px 0}
+.okbox{background:#eef8ef;color:var(--ok);border:1px solid #bfe0c2;border-radius:10px;padding:14px;margin:14px 0}
+.chk{display:flex;gap:8px;align-items:flex-start;font-weight:500}.chk input{margin-top:4px}
+footer{max-width:720px;margin:0 auto;padding:0 16px 30px;color:var(--mut);font-size:.78rem}
+.q{border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0}.q b{display:block;margin-bottom:6px}
+.op{display:flex;gap:8px;align-items:flex-start;padding:9px;border:1px solid var(--line);border-radius:8px;margin:5px 0;font-weight:500;cursor:pointer}.op input{margin-top:3px}.op.sel{border-color:var(--brand);background:#eef3fc}
+.prog{height:8px;background:#e3e8ee;border-radius:6px;overflow:hidden;margin:6px 0}.prog i{display:block;height:100%;background:var(--brand);width:0}
+.res{text-align:center;padding:18px}.res .n{font-size:2.6rem;font-weight:800}
+.q.err{border-color:var(--bad);background:#fff7f7}
+</style>
+</head>
+<body>
+<header><h1 id="tt">Prova do treinamento</h1><p id="sub">Carregando…</p></header>
+<main id="app"></main>
+<footer>Este link é para a prova deste treinamento e vale por tempo limitado. Ele não dá acesso a nenhum outro dado do sistema. Seu CPF é usado apenas para identificar você e controlar as tentativas; ele fica guardado com acesso restrito à Segurança do Trabalho e é impresso no seu certificado.</footer>
+<script>
+const Q = new URLSearchParams(location.search), TOKEN = Q.get('t') || '', API = Q.get('a') || '';
+const $ = s => document.querySelector(s);
+const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(acao, extra) {
+  if (!/^https:\/\/script\.google\.com\//.test(API)) throw new Error('Link incompleto. Peça um novo link a quem enviou.');
+  let j;
+  try { const r = await fetch(API, { method: 'POST', body: JSON.stringify(Object.assign({ acao, token: TOKEN }, extra || {})) }); j = await r.json(); }
+  catch (e) { throw new Error('Sem conexão com o servidor. Verifique a internet e tente de novo.'); }
+  if (!j.ok) throw new Error(j.erro || 'Erro.');
+  return j.data;
+}
+function cpfOk(c) {
+  c = String(c).replace(/\D/g, ''); if (c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
+  for (let t = 9; t < 11; t++) { let s = 0; for (let i = 0; i < t; i++) s += +c[i] * (t + 1 - i); if (((s * 10) % 11) % 10 !== +c[t]) return false; }
+  return true;
+}
+const fmtCpf = v => { v = v.replace(/\D/g, '').slice(0, 11); return v.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2'); };
+const emb = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+let D = null, ID = {}, QS = [], R = [], desenhou = false;
+function erro(m) { $('#sub').textContent = 'Não foi possível abrir'; $('#app').innerHTML = `<div class="erro">${esc(m)}</div>`; }
+async function iniciar() {
+  if (!TOKEN) return erro('Link incompleto. Peça um novo link a quem enviou.');
+  try { D = await api('provaGet'); } catch (e) { return erro(e.message); }
+  $('#tt').textContent = D.titulo; $('#sub').textContent = D.total + ' questões • nota mínima ' + D.minimo + '% • até ' + D.tentativas + ' tentativas';
+  tela1();
+}
+function tela1(m) {
+  $('#app').innerHTML = `<div class="card"><h2>Identificação</h2><p class="mut">Digite os seus dados para começar. Responda sozinho, com atenção: o resultado aparece na hora e, se aprovado, você assina o registro impresso com o instrutor. Se não atingir a nota mínima, você tem mais uma chance.</p>
+    <label for="nm">Nome completo</label><input type="text" id="nm" maxlength="80" autocomplete="name" value="${esc(ID.nome || '')}">
+    <label for="cp">CPF</label><input type="text" id="cp" inputmode="numeric" maxlength="14" autocomplete="off" value="${esc(ID.cpf || '')}" placeholder="000.000.000-00">
+    <p class="mut" id="msg">${esc(m || '')}</p><button id="go" type="button" style="width:100%">Começar a prova</button></div>`;
+  $('#cp').oninput = e => e.target.value = fmtCpf(e.target.value); $('#go').onclick = comecar;
+}
+async function comecar() {
+  const nome = $('#nm').value.trim().replace(/\s+/g, ' '), cpf = $('#cp').value, msg = $('#msg');
+  if (nome.length < 5 || nome.indexOf(' ') < 0) return msg.textContent = 'Digite o nome completo (nome e sobrenome).';
+  if (!cpfOk(cpf)) return msg.textContent = 'CPF inválido. Confira os números.';
+  ID = { nome, cpf }; const b = $('#go'); b.disabled = true; b.textContent = 'Carregando…';
+  try {
+    const r = await api('provaGet', { cpf });
+    if (r.aprovado) return $('#app').innerHTML = `<div class="okbox"><b>Você já foi aprovado nesta prova.</b> Não é preciso fazer de novo.</div>`;
+    if (!r.questoes) return $('#app').innerHTML = `<div class="erro"><b>Você já usou as ${esc(r.tentativas)} tentativas.</b> Procure a Segurança do Trabalho.</div>`;
+    QS = emb(r.questoes.map((q, i) => ({ p: q.p, o: q.o, i }))).map(q => ({ p: q.p, i: q.i, o: emb(q.o.map((t, k) => ({ t, k }))) })); R = new Array(QS.length).fill(-1);
+    prova(r.usadas || 0);
+  } catch (e) { tela1(e.message); }
+}
+function prova(usadas) {
+  $('#app').innerHTML = `<div class="card"><div class="mut">${usadas ? 'Segunda tentativa' : 'Primeira tentativa'} — <span id="cnt">0</span> de ${QS.length} respondidas</div><div class="prog"><i id="pg"></i></div></div>
+  ${QS.map((q, n) => `<div class="q" id="q${n}"><b>${n + 1}. ${esc(q.p)}</b>${q.o.map((o, j) => `<label class="op"><input type="radio" name="q${n}" value="${j}"><span>${esc(o.t)}</span></label>`).join('')}</div>`).join('')}
+  <div class="card" id="fin"><label class="chk"><input type="checkbox" id="ac"><span>Declaro que fiz esta prova sozinho, e que as respostas são minhas.</span></label>
+    <button id="en" type="button" style="width:100%;margin-top:10px">Enviar e ver o resultado</button><p class="mut" id="msg"></p></div>`;
+  document.querySelectorAll('input[type=radio]').forEach(r => r.onchange = () => {
+    const n = +r.name.slice(1); R[n] = +r.value; document.querySelectorAll('#q' + n + ' .op').forEach(l => l.classList.toggle('sel', l.querySelector('input').checked)); $('#q' + n).classList.remove('err');
+    const c = R.filter(x => x >= 0).length; $('#cnt').textContent = c; $('#pg').style.width = (100 * c / QS.length) + '%';
+  });
+  $('#en').onclick = enviar;
+}
+function pad() {
+  const c = $('#cv'), r = c.getBoundingClientRect(), k = 2; c.width = Math.round(r.width * k); c.height = Math.round(r.height * k);
+  const g = c.getContext('2d'); g.lineWidth = 3.2; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = '#000'; let on = false;
+  const pt = e => { const b = c.getBoundingClientRect(); return [(e.clientX - b.left) * c.width / b.width, (e.clientY - b.top) * c.height / b.height]; };
+  c.addEventListener('pointerdown', e => { on = true; c.setPointerCapture(e.pointerId); const [x, y] = pt(e); g.beginPath(); g.moveTo(x, y); g.lineTo(x + .1, y + .1); g.stroke(); desenhou = true; e.preventDefault(); });
+  c.addEventListener('pointermove', e => { if (!on) return; const [x, y] = pt(e); g.lineTo(x, y); g.stroke(); e.preventDefault(); });
+  const fim = () => { on = false; }; c.addEventListener('pointerup', fim); c.addEventListener('pointercancel', fim);
+}
+async function enviar() {
+  const msg = $('#msg'), falta = R.map((x, n) => x < 0 ? n : -1).filter(n => n >= 0);
+  document.querySelectorAll('.q').forEach(q => q.classList.remove('err'));
+  if (falta.length) { falta.forEach(n => $('#q' + n).classList.add('err')); $('#q' + falta[0]).scrollIntoView({ behavior: 'smooth', block: 'center' }); return msg.textContent = 'Responda todas as questões (' + falta.length + ' sem resposta, marcadas em vermelho).'; }
+  if (!$('#ac').checked) return msg.textContent = 'Marque a declaração.';
+  const resp = new Array(QS.length); QS.forEach((q, n) => { resp[q.i] = q.o[R[n]].k; });
+  const bt = $('#en'); bt.disabled = true; bt.textContent = 'Corrigindo…'; msg.textContent = '';
+  try { resultado(await api('provaEnviar', { nome: ID.nome, cpf: ID.cpf, respostas: resp, aceite: true })); }
+  catch (e) { msg.textContent = e.message; bt.disabled = false; bt.textContent = 'Enviar e ver o resultado'; }
+}
+function resultado(r) {
+  scrollTo(0, 0); const num = r.nota.toString().replace('.', ',') + '%';
+  if (r.aprovado) return $('#app').innerHTML = `<div class="card res"><div class="n" style="color:var(--ok)">${num}</div><h2 style="color:var(--ok)">APROVADO</h2><p>Você acertou ${r.acertos} de ${r.total} questões. O resultado foi registrado. <b>Procure o instrutor para receber e assinar o seu certificado.</b></p><p class="mut">Pode fechar esta página.</p></div>`;
+  const qtd = r.erros.length;
+  $('#app').innerHTML = `<div class="card res"><div class="n" style="color:var(--bad)">${num}</div><h2 style="color:var(--bad)">REPROVADO</h2><p>Você acertou ${r.acertos} de ${r.total} questões e a nota mínima é ${r.minimo}%.</p>
+    ${r.restantes > 0 ? `<p><b>Você tem mais ${r.restantes} chance.</b> Peça ao instrutor para rever o conteúdo com você antes de tentar de novo.</p><button id="nv" type="button" style="width:100%">Fazer a prova de novo</button>` : `<p><b>Acabaram as tentativas.</b> Procure a Segurança do Trabalho para receber um novo treinamento.</p>`}</div>`;
+  if ($('#nv')) $('#nv').onclick = comecar;
+}
+iniciar();
+</script>
+</body>
+</html>
